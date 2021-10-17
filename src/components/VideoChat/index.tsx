@@ -84,7 +84,7 @@ export const VideoChat: React.FC<Props> = ({
         return (
             <>
                 <div className='localVideoContainer'>
-                    <video ref={localVideoRef} autoPlay playsInline className='localVideo'></video>
+                    <video ref={localVideoRef} autoPlay muted playsInline className='localVideo'></video>
                     <label>{username}</label>
                 </div>
                 <div className='remoteVideoContainer'>
