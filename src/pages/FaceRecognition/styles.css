@@ -1,0 +1,15 @@
+.container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.detectionContainer {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.canvas {
+    position: absolute;
+}
