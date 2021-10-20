@@ -1,21 +1,29 @@
-import React, { MutableRefObject, useEffect, useRef, useState } from 'react';
+import React, { MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { doAnswer, doCandidate, LoginService, doOffer } from '../../services/firebaseService';
+import { Identification } from '../../components/Identification';
 import { VideoChat } from '../../components/VideoChat';
-import 'webrtc-adapter';
+import { useAuth } from '../../context/AuthContext';
 import * as faceapi from 'face-api.js';
+import 'webrtc-adapter';
 import {
     createOffer,
     initiateConnection,
     startCallRtc,
     sendAnswer,
     addCandidate,
-    initiateLocalStream,
     listenToConnectionEvents
 } from '../../services/rtcService';
-import { DatabaseFirebase, database } from '../../config/fireConfig';
-import { doAnswer, doCandidate, LoginService, doOffer } from '../../services/firebaseService';
+import { useLocation } from 'react-router';
+
+type StateProps = {
+    isCreator?: boolean;
+};
 
 export const Stream: React.FC = () => {
-    const [databaseInstance, setDatabaseInstance] = useState<DatabaseFirebase>();
+    const { databaseInstance } = useAuth();
+    const { state } = useLocation();
+    const { isCreator } = state as StateProps || {};
+    const [loading, setLoading] = useState<boolean>(true);
     const [connectedUser, setConnectedUser] = useState<string>('');
     const [localStream, setLocalStream] = useState<MediaStream>();
     const [localConnection, setLocalConnection] = useState<RTCPeerConnection>();
@@ -24,82 +32,88 @@ export const Stream: React.FC = () => {
 
     useEffect(() => {
         async function initialize() {
-
             // getting local video stream
-            const initLocalStream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true
-            });
+            try {
+                const initLocalStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
 
-            localVideoRef.current!.srcObject = initLocalStream;
+                localVideoRef.current!.srcObject = initLocalStream;
 
-            const localConnection = await initiateConnection()
+                const localConnection = await initiateConnection()
 
-            setDatabaseInstance(database);
-            setLocalStream(initLocalStream)
-            setLocalConnection(localConnection)
+                setLoading(false);
+                setLocalStream(initLocalStream);
+                setLocalConnection(localConnection);
+            } catch {
+
+                alert('Câmera desconectada');
+            }
         }
 
-        initialize()
+        initialize();
     }, []);
 
-    // shouldComponentUpdate(nextProps, nextState) {
-    //     if (this.state.database !== nextState.database) {
-    //         return false
-    //     }
-    //     if (this.state.localStream !== nextState.localStream) {
-    //         return false
-    //     }
-    //     if (this.state.localConnection !== nextState.localConnection) {
-    //         return false
-    //     }
+    const startCall = useCallback(async (username: string, userToCall: string) => {
 
-    //     return true
-    // }
+        if (localConnection && databaseInstance && localStream) {
 
-    async function startCall(username: string, userToCall: string) {
+            if (isCreator) {
 
-        listenToConnectionEvents(localConnection!, username, userToCall, database, remoteVideoRef, doCandidate)
-        // create an offer
-        createOffer(localConnection!, localStream!, userToCall, doOffer, database, username)
-    }
+                listenToConnectionEvents(localConnection, username, userToCall, databaseInstance, remoteVideoRef, doCandidate);
+                // create an offer
+                await createOffer(localConnection, localStream, userToCall, doOffer, databaseInstance, username);
+            } else {
 
-    async function onLogin(username: string) {
-        return await LoginService(username, databaseInstance!, handleUpdate)
-    }
+                listenToConnectionEvents(localConnection, username, 'mind', databaseInstance, remoteVideoRef, doCandidate);
+                // create an offer
+                await createOffer(localConnection, localStream, 'mind', doOffer, databaseInstance, username);
+            }
+        }
+    }, [databaseInstance, isCreator, localConnection, localStream]);
 
-    // function setLocalVideoRef(ref: HTMLVideoElement) {
-    //     localVideoRef.current = ref
-    // }
+    const handleUpdate = useCallback((notif: any, username: string) => {
 
-    // function setRemoteVideoRef(ref: HTMLVideoElement) {
-    //     remoteVideoRef.current = ref
-    // }
-
-    function handleUpdate(notif: any, username: string) {
-
-        if (notif) {
+        if (notif && localConnection && databaseInstance && localStream) {
             switch (notif.type) {
                 case 'offer':
                     setConnectedUser(notif.from)
 
-                    listenToConnectionEvents(localConnection!, username, notif.from, database, remoteVideoRef, doCandidate)
+                    listenToConnectionEvents(localConnection, username, notif.from, databaseInstance, remoteVideoRef, doCandidate)
 
-                    sendAnswer(localConnection!, localStream!, notif, doAnswer, database, username)
+                    sendAnswer(localConnection, localStream, notif, doAnswer, databaseInstance, username)
                     break
                 case 'answer':
 
                     setConnectedUser(notif.from)
-                    startCallRtc(localConnection!, notif)
+                    startCallRtc(localConnection, notif)
                     break
                 case 'candidate':
-                    addCandidate(localConnection!, notif)
+                    addCandidate(localConnection, notif)
                     break
                 default:
                     break
             }
         }
-    }
+    }, [databaseInstance, localConnection, localStream])
+
+    const onLogin = useCallback(async (username: string) => {
+        await LoginService(username, databaseInstance!, handleUpdate);
+    }, [databaseInstance, handleUpdate]);
+
+    useEffect(() => {
+
+        async function validateCreator() {
+
+            if (isCreator) {
+
+                await onLogin('mind');
+            }
+        }
+
+        validateCreator();
+    }, [onLogin, isCreator]);
 
     useEffect(() => {
 
@@ -117,12 +131,24 @@ export const Stream: React.FC = () => {
     }, []);
 
     return (
-        <VideoChat
-            onLogin={onLogin}
-            localVideoRef={localVideoRef}
-            remoteVideoRef={remoteVideoRef}
-            startCall={startCall}
-            connectedUser={connectedUser}
-        />
+        <>
+            {connectedUser || isCreator
+                ? (
+                    <VideoChat
+                        localVideoRef={localVideoRef}
+                        remoteVideoRef={remoteVideoRef}
+                        isCreator={isCreator ? true : false}
+                        connectedUser={connectedUser}
+                    />
+                ) : (
+                    <Identification
+                        onLogin={onLogin}
+                        localVideoRef={localVideoRef}
+                        loading={loading}
+                        startCall={startCall}
+                    />
+                )
+            }
+        </>
     );
 };

@@ -5,8 +5,15 @@ export const createOffer = async (
     connection: any,
     localStream: MediaStream,
     userToCall: string,
-    doOffer: (to: string, offer: any, database: DatabaseFirebase, username: string) => Promise<void>,
-    database: DatabaseFirebase, username: string) => {
+    doOffer: (
+        to: string,
+        offer: any,
+        database: DatabaseFirebase,
+        username: string
+        ) => Promise<void>,
+    database: DatabaseFirebase,
+    username: string
+    ) => {
     try {
         connection.addStream(localStream)
 
@@ -14,18 +21,6 @@ export const createOffer = async (
         await connection.setLocalDescription(offer)
 
         doOffer(userToCall, offer, database, username)
-    } catch (exception) {
-        console.error(exception)
-    }
-}
-
-export const initiateLocalStream = async () => {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-        })
-        return stream
     } catch (exception) {
         console.error(exception)
     }
@@ -116,7 +111,12 @@ export const sendAnswer = async (
     conn: any,
     localStream: MediaStream,
     notif: any,
-    doAnswer: (to: string, answer: RTCSessionDescriptionInit, database: DatabaseFirebase, username: string) => void,
+    doAnswer: (
+        to: string,
+        answer: RTCSessionDescriptionInit,
+        database: DatabaseFirebase,
+        username: string
+        ) => void,
     database: DatabaseFirebase,
     username: string
 ) => {
