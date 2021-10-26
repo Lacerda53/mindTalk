@@ -1,6 +1,6 @@
 import React, { MutableRefObject, useCallback, useMemo, useRef } from 'react';
 import * as faceapi from 'face-api.js';
-import './styles.css';
+import { Canvas, Container, Label, LocalContainer, RemoteContainer, VideoLocal, VideoRemote } from './styles';
 
 type Props = {
     localVideoRef: MutableRefObject<HTMLVideoElement | null>;
@@ -50,16 +50,16 @@ export const VideoChat: React.FC<Props> = ({
     }, [displaySize, remoteVideoRef, isCreator])
 
     return (
-        <section>
-            <div className='localVideoContainer'>
-                <video ref={localVideoRef} autoPlay muted playsInline className='localVideo'></video>
-                <label>You</label>
-            </div>
-            <div className='remoteVideoContainer'>
-                <video ref={remoteVideoRef} autoPlay playsInline width={videoWidth} height={videoHeight} onPlay={videoOnPlay}></video>
-                <label>{connectedUser}</label>
-                {isCreator && <canvas ref={canvasRef} className='canvas' />}
-            </div>
-        </section>
+        <Container>
+            <LocalContainer>
+                <VideoLocal ref={localVideoRef} autoPlay muted playsInline />
+                <Label>You</Label>
+            </LocalContainer>
+            <RemoteContainer>
+                <VideoRemote ref={remoteVideoRef} autoPlay playsInline onPlay={videoOnPlay} />
+                <Label>{connectedUser}</Label>
+                {isCreator && <Canvas ref={canvasRef} />}
+            </RemoteContainer>
+        </Container>
     )
 };
